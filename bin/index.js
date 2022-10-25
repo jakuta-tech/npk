@@ -219,11 +219,15 @@ async function getAZsWithQuota() {
 		const ec2 = new aws.EC2({ region });
 
 		offerings.push(ec2.describeInstanceTypeOfferings({
-			LocationType: "region"
+			LocationType: "availability-zone",
+			Filters: [
+				{
+					Name: "instance-type",
+					Values: Object.keys(instanceTypes)
+				}
+			]
 		}).promise().then((data) => {
-
-			const instances = data.InstanceTypeOfferings
-				.filter(e => Object.keys(instanceTypes).includes(e.InstanceType))
+			data.InstanceTypeOfferings
 				.map(e => {
 					instanceRegions[instanceTypes[e.InstanceType]].push(region);
 				});
