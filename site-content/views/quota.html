@@ -13,7 +13,7 @@
             </div>
             <div>
               <small>
-                Regions with zero quota are not shown. Configured regions: {{ all_regions.join(', ') }}.
+                Regions with zero quota are not shown. Configured regions: <span ng-repeat="(region, azs) in all_regions">{{ region }}<span ng-if="!$last">, </span></span>.
               </small>
             </div>
           </div>
