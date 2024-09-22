@@ -76,8 +76,7 @@ async function deploy(skipInit, autoApprove) {
 	}
 
 	// Get AZ/Quota info
-	const azQuotas = await getAZsWithQuota();
-	Object.assign(validatedSettings, azQuotas);
+	Object.assign(validatedSettings, computedQuotas);
 
 	const iam = new aws.IAM();
 
@@ -91,6 +90,23 @@ async function deploy(skipInit, autoApprove) {
 		try {
 			await iam.createServiceLinkedRole({
 				AWSServiceName: "spot.amazonaws.com"
+			}).promise();
+		} catch (e) {
+			console.trace(e);
+			console.log(`[!] Unable to create service linked role: ${e}`);
+		}
+	}
+
+	try {
+		await iam.getRole({
+			RoleName: "AWSServiceRoleForEC2SpotFleet"
+		}).promise();
+	} catch (e) {
+		console.log(`[*] EC2 spot fleet SLR is not present. Creating...`);
+
+		try {
+			await iam.createServiceLinkedRole({
+				AWSServiceName: "spotfleet.amazonaws.com"
 			}).promise();
 		} catch (e) {
 			console.trace(e);
@@ -171,22 +187,24 @@ async function getAZsWithQuota() {
 	const quotaPromises = regions.reduce((quotas, region) => {
 		const sq = new aws.ServiceQuotas({ region });
 
-		quotas.push(sq.listServiceQuotas({
-			ServiceCode: 'ec2'
-		}).promise().then((data) => {
+		quotaCodes.map(qc => {
+			quotas.push(sq.getServiceQuota({
+				ServiceCode: 'ec2',
+				QuotaCode: qc
+			}).promise().then((data) => {
 
-			data.Quotas
-				.filter(q => quotaCodes.indexOf(q.QuotaCode) > -1 && q.Value > 0)
-				.map(q => {
+				const q = data.Quota;
+				if (q.Value > 0) {
 					regionQuotas[region] ??= {};
 
 					regionQuotas[region][q.QuotaCode] = q.Value;
 					maxQuota = (q.Value > maxQuota) ? q.Value : maxQuota;
-				});
-		}).catch(e => {
-			console.log(`[-] Unable to get quotas for ${region}, but this isn't fatal.`);
-			regions = regions.filter(r => r != region);
-		}));
+				}
+			}).catch(e => {
+				console.log(`[-] Unable to get quotas for ${region}, but this isn't fatal.`);
+				regions = regions.filter(r => r != region);
+			}));
+		});
 
 		return quotas;
 	}, []);
@@ -484,7 +502,7 @@ function showHelloBanner() {
 
 function showHelpBanner() {
 	console.log("[!] Deployment failed. If you're having trouble, hop in Discord for help.");
-	console.log("--> Porchetta Industries Discord: https://discord.gg/k5PQnqSNDF");
+	console.log("--> NPK Official Discord: https://discord.gg/k5PQnqSNDF");
 	console.log("");
 	process.exit(1);
 }

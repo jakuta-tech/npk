@@ -26,9 +26,13 @@
 			cognito_unauthenticated: {
 				name_prefix: "cognito_unauthenticated_role_",
 				assume_role_policy: '{"Version": "2012-10-17","Statement": [{
-					"Effect": "Allow","Principal": {"Federated": "cognito-identity.amazonaws.com"},
-					"Action": "sts:AssumeRoleWithWebIdentity"}
-				]}'
+					"Effect": "Allow",
+					"Principal": {"Federated": "cognito-identity.amazonaws.com"},
+					"Action": "sts:AssumeRoleWithWebIdentity",
+					"Condition": {
+			    		"StringEquals": {"cognito-identity.amazonaws.com:aud": "${aws_cognito_identity_pool.main.id}"},
+			    		"ForAnyValue:StringLike": {"cognito-identity.amazonaws.com:amr": "unauthenticated"}
+				}}]}'
 			},
 		},
 		aws_iam_role_policy: {
@@ -235,7 +239,7 @@
 						"dynamodb:PutItem",
 					],
 					resources: [
-						"${aws_dynamodb_table.campaigns.arn}",
+						//"${aws_dynamodb_table.campaigns.arn}",
 						"${aws_dynamodb_table.settings.arn}"
 					],
 					condition: [{
