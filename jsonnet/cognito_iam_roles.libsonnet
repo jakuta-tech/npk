@@ -219,7 +219,6 @@
 						"dynamodb:PutItem",
 					],
 					resources: [
-						//"${aws_dynamodb_table.campaigns.arn}",
 						"${aws_dynamodb_table.settings.arn}"
 					],
 					condition: [{
@@ -261,7 +260,7 @@
 						"execute-api:Invoke"
 					],
 					resources: [
-						"${aws_api_gateway_deployment.%s.execution_arn}/*/userproxy/*" % apiName
+						"${aws_api_gateway_deployment.%s.execution_arn}*/userproxy/*" % apiName
 					]
 				}]
 			}
