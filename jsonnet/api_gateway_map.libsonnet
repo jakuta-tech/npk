@@ -115,7 +115,18 @@ local rest_api(name, map) =
 			aws_api_gateway_deployment: {
 				[name]: map.deployment + {
 					rest_api_id: "${aws_api_gateway_rest_api.%s.id}" % [name],
-					depends_on: ["aws_api_gateway_integration.%s" % [integration] for integration in std.objectFields(api_map.resource.aws_api_gateway_integration)],
+					// depends_on: ["aws_api_gateway_integration.%s" % [integration] for integration in std.objectFields(api_map.resource.aws_api_gateway_integration)],
+					depends_on: [
+						"%s.%s" % [type, integration]
+						for type in [
+							"aws_api_gateway_resource",
+							"aws_api_gateway_method",
+							"aws_api_gateway_integration",
+							"aws_api_gateway_method_response",
+							"aws_api_gateway_integration_response"
+						]
+						for integration in std.objectFields(api_map.resource[type])
+					],
 					triggers: {
 						redeployment: "${timestamp()}"
 					}
