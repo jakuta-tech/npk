@@ -34,12 +34,14 @@ mkdir /potfiles
 
 # format & mount /dev/xvdb
 if [[ -e /dev/xvdb ]]; then
+	echo "Using base device /dev/xvdb"
 	mkfs.ext4 /dev/xvdb
 	mkdir /xvdb
 	mount /dev/xvdb /xvdb/
 	mkdir /xvdb/npk-wordlist
 	ln -s /xvdb/npk-wordlist /root/npk-wordlist
 else
+	echo "Using base device /dev/nvme1n1"
 	mkfs.ext4 /dev/nvme1n1
 	mkdir /nvme1n1
 	mount /dev/nvme1n1 /nvme1n1/
