@@ -27,8 +27,8 @@
 		}
 	},
 	"NVIDIA V100": {
-		"ami": "amzn2-ami-graphics-hvm-2*",
-		"owner": "679593333241",
+		"ami": "aws-parallelcluster-*-ubuntu-*",
+		"owner": "247102896272",
 		"quotaCode": "L-7212CCBC",
 		"instances": {
 			"p3.2xlarge": [1, 8],
