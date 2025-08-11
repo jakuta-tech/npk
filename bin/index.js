@@ -483,7 +483,7 @@ function showHelloBanner() {
 	console.log(" Hello friend! Thanks for using NPK!");
 	console.log("");
 	console.log(" Need help, want to contribute, or want to brag about a win?");
-	console.log(" Join us on Discord! [ https://discord.gg/k5PQnqSNDF ]");
+	console.log(" Join us on Discord! [ https://discord.gg/w4G5k92czX ]");
 	console.log("");
 	console.log(" Sincerely, @c6fc");
 	console.log("***********************************************************");
@@ -492,7 +492,7 @@ function showHelloBanner() {
 
 function showHelpBanner() {
 	console.log("[!] Deployment failed. If you're having trouble, hop in Discord for help.");
-	console.log("--> NPK Official Discord: https://discord.gg/k5PQnqSNDF");
+	console.log("--> NPK Official Discord: https://discord.gg/w4G5k92czX");
 	console.log("");
 	process.exit(1);
 }
