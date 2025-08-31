@@ -18,17 +18,23 @@ aws ec2 describe-tags --region $REGION --filter "Name=resource-id,Values=$INSTAN
 export ManifestPath=$ManifestPath
 echo $ManifestPath > /root/manifestpath
 
-if [[ -f $(which yum) ]]; then
-	yum install -y jq
-else
-	apt-get update
-	apt-get install -y jq wget p7zip-full maskprocessor
-fi
-
 export BUCKET=${dictionaryBucket}
 export BUCKETREGION=${userdataRegion}
 
 echo "Using dictionary bucket $BUCKET";
+
+# AMD drivers are only available on AL2, which needs EPEL for 7zip
+if [[ `lspci | grep AMD | wc -l` -gt 0 ]]; then
+	aws s3 cp s3://$BUCKET/components-v3/epel.rpm .
+	rpm -Uvh epel.rpm
+	yum install -y jq opencl-amdgpu-pro
+else
+	# AL2023 does not support crontab by default
+	yum install -y cronie
+	systemctl start crond.service
+fi
+
+yum install -y p7zip p7zip-plugins
 
 mkdir /potfiles
 
@@ -52,25 +58,15 @@ fi;
 aws s3 cp s3://$BUCKET/components-v3/compute-node.7z .
 aws s3 cp s3://$USERDATA/$ManifestPath/manifest.json .
 
-if [[ -f $(which yum) ]]; then
-	aws s3 cp s3://$BUCKET/components-v3/epel.rpm .
-	rpm -Uvh epel.rpm
-	yum install -y p7zip p7zip-plugins
-fi
-
-if [[ `lspci | grep AMD | wc -l` -gt 0 ]]; then
-	yum install -y opencl-amdgpu-pro
-fi
-
 # Install nvm
-curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.33.2/install.sh | /bin/bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | /bin/bash
 
 mv /.nvm /root/
 [ -s "/root/.nvm/nvm.sh" ] && \. "/root/.nvm/nvm.sh"
 [ -s "/root/.nvm/bash_completion" ] && \. "/root/.nvm/bash_completion"
 
-# Install NodeJS v17.0.1
-nvm install 17.0.1
+# Install NodeJS v17 for AL2 compatibility
+nvm install 17
 
 # Retrieve the hashes file
 wget -O hashes.txt "$(jq -r '.hashFileUrl' manifest.json)"
@@ -117,30 +113,28 @@ chmod +x /root/monitor_instance_action.sh
 cat /root/monitor_instance_action.sh
 
 # Create the crontab to sync s3
-echo "* * * * * root aws --region $USERDATAREGION s3 sync s3://$USERDATA/$ManifestPath/potfiles/ /potfiles/ --exclude \"*$${INSTANCEID}*\" --exclude \"*benchmark-results*\"" >> /etc/crontab
-echo "* * * * * root aws --region $USERDATAREGION s3 sync /potfiles/ s3://$USERDATA/$ManifestPath/potfiles/ --include \"*$${INSTANCEID}*\" --include \"*benchmark-results*\"" >> /etc/crontab
+echo "* * * * * root /usr/local/bin/aws --region $USERDATAREGION s3 sync s3://$USERDATA/$ManifestPath/potfiles/ /potfiles/ --exclude \"*$${INSTANCEID}*\" --exclude \"*benchmark-results*\"" >> /etc/crontab
+echo "* * * * * root /usr/local/bin/aws --region $USERDATAREGION s3 sync /potfiles/ s3://$USERDATA/$ManifestPath/potfiles/ --include \"*$${INSTANCEID}*\" --include \"*benchmark-results*\"" >> /etc/crontab
 echo "* * * * * root /root/monitor_instance_action.sh" >> /etc/crontab
 
 aws ec2 describe-spot-fleet-instances --region $REGION --spot-fleet-request-id $SpotFleet | jq '.ActiveInstances[].InstanceId' | sort > fleet_instances
 export INSTANCECOUNT=$(cat fleet_instances | wc -l)
 export INSTANCENUMBER=$(cat fleet_instances | grep -nr $INSTANCEID - | cut -d':' -f1)
 
-if [[ $(uname -a | grep x86_64 | wc -l) -eq 1 ]]; then
+if [[ `lspci | grep AMD | wc -l` -gt 0 ]]; then
+	# Need to compile Hashcat for AL2's old GLIBC
+	aws s3 cp s3://$BUCKET/components-v3/hashcat.al2.7z .
+	aws s3 cp s3://$BUCKET/components-v3/maskprocessor.7z .
+elif [[ $(uname -a | grep x86_64 | wc -l) -eq 1 ]]; then
 	aws s3 cp s3://$BUCKET/components-v3/hashcat.7z .
 	aws s3 cp s3://$BUCKET/components-v3/maskprocessor.7z .
-
-	7z x hashcat.7z
-	7z x maskprocessor.7z
-	mv hashcat-*/ hashcat
-	mv maskprocessor-*/ maskprocessor
 else
 	aws s3 cp s3://$BUCKET/components-v3/hashcat.arm64.7z .
-	7z x hashcat.arm64.7z
-	mv /root/hashcat/hashcat /root/hashcat/hashcat.bin
-	mkdir /root/maskprocessor
-	ln -s $(which mp64) /root/maskprocessor/mp64.bin
+	aws s3 cp s3://$BUCKET/components-v3/maskprocessor.arm64.7z .
 fi
 
+7z x hashcat*.7z && mv hashcat-*/ hashcat
+7z x maskprocessor*.7z && mv maskprocessor-*/ maskprocessor
 7z x compute-node.7z
 
 # Put the envvars in a useful place, in case debugging is needed.
